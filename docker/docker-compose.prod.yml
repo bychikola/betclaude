@@ -1,14 +1,13 @@
-version: '3.8'
-
 # ============================================================
 # BetClaude — One-Command Production Deploy
 #
 # Usage:
-#   git clone <repo-url> && cd betclaude
-#   cp .env.example .env   # Edit .env with your values
-#   docker compose -f docker/docker-compose.prod.yml up -d
+#   git clone https://github.com/bychikola/betclaude.git
+#   cd betclaude
+#   bash deploy.sh
 #
-# That's it. The app will be available at http://localhost
+# All Node.js services build from root Dockerfile (monorepo).
+# Python analytics uses its own Dockerfile.
 # ============================================================
 
 services:
@@ -56,7 +55,7 @@ services:
     restart: unless-stopped
 
   # ============================================================
-  # Analytics Service (Python ML + Data)
+  # Analytics Service (Python — separate Dockerfile)
   # ============================================================
   analytics:
     build:
@@ -86,12 +85,13 @@ services:
     restart: unless-stopped
 
   # ============================================================
-  # Session Orchestrator (Claude CLI Process Manager)
+  # Session Orchestrator (Node.js — root Dockerfile, target: orchestrator)
   # ============================================================
   orchestrator:
     build:
-      context: ../packages/session-orchestrator
+      context: ..
       dockerfile: Dockerfile
+      target: orchestrator
     container_name: betclaude-orchestrator
     environment:
       NODE_ENV: production
@@ -118,12 +118,13 @@ services:
     restart: unless-stopped
 
   # ============================================================
-  # API Gateway (Fastify REST + WebSocket)
+  # API Gateway (Node.js — root Dockerfile, target: api-gateway)
   # ============================================================
   api-gateway:
     build:
-      context: ../packages/api-gateway
+      context: ..
       dockerfile: Dockerfile
+      target: api-gateway
     container_name: betclaude-api
     environment:
       NODE_ENV: production
@@ -149,12 +150,13 @@ services:
     restart: unless-stopped
 
   # ============================================================
-  # Frontend (React SPA served by Nginx)
+  # Frontend (Node.js build → Nginx serve — root Dockerfile, target: frontend)
   # ============================================================
   frontend:
     build:
-      context: ../packages/frontend
+      context: ..
       dockerfile: Dockerfile
+      target: frontend
     container_name: betclaude-frontend
     ports:
       - "80:80"

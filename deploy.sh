@@ -165,7 +165,7 @@ echo ""
 # PHASE 3 — Build
 # ============================================================
 echo -e "${BLUE}━━━ Phase 3: Building Images ━━━${NC}"
-$DOCKER_CMD compose -f docker/docker-compose.prod.yml build 2>&1 | grep -E '^(#[0-9]|Successfully|ERROR|FAILED)' || true
+$DOCKER_CMD compose -f docker/docker-compose.prod.yml build 2>&1
 echo -e "${GREEN}✓ Build complete${NC}"
 echo ""
 
