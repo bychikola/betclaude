@@ -1,0 +1,36 @@
+{
+  "title": "BetClaude — Service Dashboard",
+  "uid": "betclaude",
+  "panels": [
+    {
+      "title": "HTTP Request Rate",
+      "type": "graph",
+      "targets": [{ "expr": "rate(betclaude_http_requests_total[1m])" }]
+    },
+    {
+      "title": "Active WebSocket Connections",
+      "type": "stat",
+      "targets": [{ "expr": "betclaude_active_ws_clients" }]
+    },
+    {
+      "title": "Error Rate",
+      "type": "graph",
+      "targets": [{ "expr": "rate(betclaude_errors_total[1m])" }]
+    },
+    {
+      "title": "Request Duration",
+      "type": "heatmap",
+      "targets": [{ "expr": "rate(betclaude_request_duration_seconds_bucket[5m])" }]
+    },
+    {
+      "title": "Claude Process Pool",
+      "type": "table",
+      "targets": [{ "expr": "betclaude_pool_processes_total" }]
+    },
+    {
+      "title": "WebSocket Message Rate",
+      "type": "graph",
+      "targets": [{ "expr": "rate(betclaude_ws_messages_total[1m])" }]
+    }
+  ]
+}

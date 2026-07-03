@@ -1,0 +1,45 @@
+{
+  "name": "betclaude",
+  "version": "0.3.0",
+  "private": true,
+  "description": "AI-powered sports analysis platform — Claude Code CLI + MCP servers + React frontend",
+  "workspaces": [
+    "packages/shared",
+    "packages/api-gateway",
+    "packages/session-orchestrator",
+    "packages/frontend",
+    "packages/mcp-servers/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n gw,orch,fe \"npm run dev:gateway\" \"npm run dev:orchestrator\" \"npm run dev:frontend\"",
+    "dev:gateway": "npm run dev -w packages/api-gateway",
+    "dev:orchestrator": "npm run dev -w packages/session-orchestrator",
+    "dev:frontend": "npm run dev -w packages/frontend",
+    "dev:analytics": "cd packages/analytics-service && python -m src.main",
+    "build": "tsc -b && npm run build -w packages/frontend",
+    "build:ts": "tsc -b",
+    "lint": "eslint packages --ext .ts",
+    "db:migrate": "knex migrate:latest --knexfile db/knexfile.ts",
+    "db:seed": "knex seed:run --knexfile db/knexfile.ts",
+    "db:seed:demo": "psql -h localhost -U betclaude -d betclaude -f db/seeds/01-demo-data.sql",
+    "docker:up": "docker compose -f docker/docker-compose.yml up -d",
+    "docker:up:all": "docker compose -f docker/docker-compose.yml --profile full --profile monitoring up -d",
+    "docker:down": "docker compose -f docker/docker-compose.yml down",
+    "docker:build": "docker compose -f docker/docker-compose.yml build",
+    "setup": "npm install && npm run build:ts && npm run docker:up && npm run db:seed:demo"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3",
+    "tsx": "^4.7.0",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.11",
+    "ts-jest": "^29.1.1",
+    "knex": "^3.1.0",
+    "pg": "^8.11.3",
+    "concurrently": "^8.2.2"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/shared" },
+    { "path": "packages/api-gateway" },
+    { "path": "packages/session-orchestrator" },
+    { "path": "packages/mcp-servers/session-memory" },
+    { "path": "packages/mcp-servers/live-scores" },
+    { "path": "packages/mcp-servers/odds-provider" },
+    { "path": "packages/mcp-servers/stats-provider" },
+    { "path": "packages/mcp-servers/historical-db" },
+    { "path": "packages/mcp-servers/news-provider" },
+    { "path": "packages/mcp-servers/predictor" },
+    { "path": "packages/mcp-servers/pattern-finder" },
+    { "path": "packages/mcp-servers/chart-builder" },
+    { "path": "packages/mcp-servers/weather" }
+  ]
+}

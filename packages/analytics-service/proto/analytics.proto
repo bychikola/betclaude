@@ -1,0 +1,219 @@
+syntax = "proto3";
+
+package betclaude.analytics;
+
+// ============================================================
+// Analytics gRPC Service
+// ============================================================
+
+service AnalyticsService {
+  // Data ingestion
+  rpc IngestMatchData(IngestRequest) returns (IngestResponse);
+  rpc IngestOddsData(IngestOddsRequest) returns (IngestResponse);
+
+  // Predictions
+  rpc PredictMatch(PredictRequest) returns (PredictResponse);
+  rpc BatchPredict(BatchPredictRequest) returns (BatchPredictResponse);
+
+  // Analysis
+  rpc AnalyzeMatch(AnalyzeRequest) returns (AnalyzeResponse);
+  rpc GetTeamForm(TeamFormRequest) returns (TeamFormResponse);
+  rpc GetHeadToHead(H2HRequest) returns (H2HResponse);
+
+  // Reports
+  rpc GenerateReport(ReportRequest) returns (ReportResponse);
+
+  // Health
+  rpc HealthCheck(HealthRequest) returns (HealthResponse);
+}
+
+// ============================================================
+// Messages
+// ============================================================
+
+message HealthRequest {}
+message HealthResponse {
+  string status = 1;
+  string version = 2;
+  int64 uptime_seconds = 3;
+}
+
+// --- Ingest ---
+
+message IngestRequest {
+  string source = 1;           // "api-football", "sportradar", "opta"
+  string sport = 2;
+  string data_type = 3;        // "match", "event", "stats"
+  bytes payload = 4;           // JSON payload
+}
+
+message IngestOddsRequest {
+  string provider = 1;         // "pinnacle", "bet365"
+  string match_id = 2;
+  bytes payload = 3;           // JSON odds data
+}
+
+message IngestResponse {
+  bool success = 1;
+  string message = 2;
+  int32 records_processed = 3;
+}
+
+// --- Predict ---
+
+message PredictRequest {
+  string match_id = 1;
+  repeated string models = 2;  // "poisson", "elo", "xgboost", "ensemble"
+  bool include_features = 3;
+}
+
+message PredictResponse {
+  string match_id = 1;
+  repeated Prediction predictions = 2;
+}
+
+message Prediction {
+  string model = 1;
+  double home_score = 2;
+  double away_score = 3;
+  double confidence = 4;
+  map<string, double> probabilities = 5;  // "home_win", "draw", "away_win"
+  map<string, double> features = 6;       // optional feature values
+}
+
+message BatchPredictRequest {
+  repeated string match_ids = 1;
+  string model = 2;
+}
+
+message BatchPredictResponse {
+  repeated PredictResponse results = 1;
+}
+
+// --- Analyze ---
+
+message AnalyzeRequest {
+  string match_id = 1;
+  bool include_stats = 2;
+  bool include_h2h = 3;
+  bool include_form = 4;
+}
+
+message AnalyzeResponse {
+  string match_id = 1;
+  MatchAnalysis analysis = 2;
+}
+
+message MatchAnalysis {
+  MatchInfo match_info = 1;
+  TeamAnalysis home_team = 2;
+  TeamAnalysis away_team = 3;
+  HeadToHead head_to_head = 4;
+  repeated string key_factors = 5;
+}
+
+message MatchInfo {
+  string home_team = 1;
+  string away_team = 2;
+  string league = 3;
+  string sport = 4;
+  string start_time = 5;
+  string status = 6;
+}
+
+message TeamAnalysis {
+  string team_name = 1;
+  FormSummary recent_form = 2;
+  TeamStats season_stats = 3;
+  repeated string key_players = 4;
+  repeated string injuries = 5;
+}
+
+message FormSummary {
+  int32 matches = 1;
+  int32 wins = 2;
+  int32 draws = 3;
+  int32 losses = 4;
+  int32 goals_for = 5;
+  int32 goals_against = 6;
+  double avg_xg = 7;
+  string trend = 8;  // "improving", "declining", "stable"
+}
+
+message TeamStats {
+  double avg_possession = 1;
+  double avg_shots = 2;
+  double avg_shots_on_target = 3;
+  double avg_xg = 4;
+  double avg_xg_against = 5;
+  int32 clean_sheets = 6;
+  int32 failed_to_score = 7;
+}
+
+message HeadToHead {
+  int32 total_matches = 1;
+  int32 home_wins = 2;
+  int32 draws = 3;
+  int32 away_wins = 4;
+  repeated H2HMatch recent_matches = 5;
+}
+
+message H2HMatch {
+  string date = 1;
+  string competition = 2;
+  string home_team = 3;
+  string away_team = 4;
+  int32 home_score = 5;
+  int32 away_score = 6;
+}
+
+// --- Team Form ---
+
+message TeamFormRequest {
+  string team_id = 1;
+  int32 matches = 2;  // default 10
+}
+
+message TeamFormResponse {
+  string team_id = 1;
+  string team_name = 2;
+  repeated FormMatch matches = 3;
+  FormSummary summary = 4;
+}
+
+message FormMatch {
+  string date = 1;
+  string opponent = 2;
+  bool is_home = 3;
+  int32 goals_for = 4;
+  int32 goals_against = 5;
+  string result = 6;  // "W", "D", "L"
+  double xg = 7;
+}
+
+// --- H2H ---
+
+message H2HRequest {
+  string team1_id = 1;
+  string team2_id = 2;
+  int32 limit = 3;  // default 10
+}
+
+message H2HResponse {
+  HeadToHead summary = 1;
+}
+
+// --- Report ---
+
+message ReportRequest {
+  string match_id = 1;
+  string format = 2;    // "markdown", "pdf", "json"
+  repeated string sections = 3;  // "summary", "stats", "h2h", "prediction", "odds"
+}
+
+message ReportResponse {
+  string report_id = 1;
+  string format = 2;
+  string content = 3;    // Report content (or URL)
+  int64 generated_at = 4;
+}

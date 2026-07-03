@@ -1,0 +1,1 @@
+{"name":"@betclaude/mcp-pattern-finder","version":"0.3.0","private":true,"type":"module","main":"./dist/index.js","scripts":{"build":"tsc","dev":"tsx src/index.ts"},"dependencies":{"@betclaude/shared":"*","pg":"^8.11.3","redis":"^4.6.12"},"devDependencies":{"tsx":"^4.7.0"}}

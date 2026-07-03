@@ -1,0 +1,185 @@
+version: '3.8'
+
+services:
+  # ============================================================
+  # Databases
+  # ============================================================
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: betclaude-postgres
+    environment:
+      POSTGRES_DB: betclaude
+      POSTGRES_USER: betclaude
+      POSTGRES_PASSWORD: betclaude_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U betclaude"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: betclaude-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # ============================================================
+  # Application Services
+  # ============================================================
+  api-gateway:
+    build:
+      context: ../packages/api-gateway
+      dockerfile: Dockerfile
+    container_name: betclaude-api
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: betclaude
+      DB_USER: betclaude
+      DB_PASSWORD: betclaude_dev
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-prod-access-secret}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-prod-refresh-secret}
+      API_HOST: "0.0.0.0"
+      API_PORT: "3000"
+      CLAUDE_CLI_PATH: claude
+      ANALYTICS_SERVICE_URL: http://analytics:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  orchestrator:
+    build:
+      context: ../packages/session-orchestrator
+      dockerfile: Dockerfile
+    container_name: betclaude-orchestrator
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: betclaude
+      DB_USER: betclaude
+      DB_PASSWORD: betclaude_dev
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      CLAUDE_CLI_PATH: claude
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  analytics:
+    build:
+      context: ../packages/analytics-service
+      dockerfile: Dockerfile
+    container_name: betclaude-analytics
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: betclaude
+      DB_USER: betclaude
+      DB_PASSWORD: betclaude_dev
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      ANALYTICS_HOST: "0.0.0.0"
+      ANALYTICS_PORT: "8000"
+      API_FOOTBALL_KEY: ${API_FOOTBALL_KEY:-}
+      SPORTRADAR_KEY: ${SPORTRADAR_KEY:-}
+      NEWSAPI_KEY: ${NEWSAPI_KEY:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ============================================================
+  # Frontend
+  # ============================================================
+  frontend:
+    build:
+      context: ../packages/frontend
+      dockerfile: Dockerfile
+    container_name: betclaude-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - api-gateway
+    restart: unless-stopped
+
+  # ============================================================
+  # Monitoring (profile: monitoring)
+  # ============================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: betclaude-prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    profiles:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: betclaude-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: grafana-clock-panel
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafanalib:/etc/grafana/provisioning/dashboards
+    profiles:
+      - monitoring
+
+  # ============================================================
+  # Dev Tools (profile: tools)
+  # ============================================================
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: betclaude-redis-ui
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:

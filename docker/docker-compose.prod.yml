@@ -1,0 +1,167 @@
+version: '3.8'
+
+# ============================================================
+# BetClaude — One-Command Production Deploy
+#
+# Usage:
+#   git clone <repo-url> && cd betclaude
+#   cp .env.example .env   # Edit .env with your values
+#   docker compose -f docker/docker-compose.prod.yml up -d
+#
+# That's it. The app will be available at http://localhost
+# ============================================================
+
+services:
+  # ============================================================
+  # Databases
+  # ============================================================
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: betclaude-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-betclaude}
+      POSTGRES_USER: ${DB_USER:-betclaude}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-betclaude_dev}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../db/init:/docker-entrypoint-initdb.d
+      - ../db/seeds:/docker-entrypoint-initdb.d/zz-seeds
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-betclaude}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: betclaude-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # ============================================================
+  # Analytics Service (Python ML + Data)
+  # ============================================================
+  analytics:
+    build:
+      context: ../packages/analytics-service
+      dockerfile: Dockerfile
+    container_name: betclaude-analytics
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-betclaude}
+      DB_USER: ${DB_USER:-betclaude}
+      DB_PASSWORD: ${DB_PASSWORD:-betclaude_dev}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      ANALYTICS_HOST: "0.0.0.0"
+      ANALYTICS_PORT: "8000"
+      API_FOOTBALL_KEY: ${API_FOOTBALL_KEY:-}
+      SPORTRADAR_KEY: ${SPORTRADAR_KEY:-}
+      NEWSAPI_KEY: ${NEWSAPI_KEY:-}
+      PINNACLE_API_KEY: ${PINNACLE_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ============================================================
+  # Session Orchestrator (Claude CLI Process Manager)
+  # ============================================================
+  orchestrator:
+    build:
+      context: ../packages/session-orchestrator
+      dockerfile: Dockerfile
+    container_name: betclaude-orchestrator
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-betclaude}
+      DB_USER: ${DB_USER:-betclaude}
+      DB_PASSWORD: ${DB_PASSWORD:-betclaude_dev}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      CLAUDE_CLI_PATH: ${CLAUDE_CLI_PATH:-claude}
+      ANALYTICS_SERVICE_URL: http://analytics:8000
+      API_FOOTBALL_KEY: ${API_FOOTBALL_KEY:-}
+      SPORTRADAR_KEY: ${SPORTRADAR_KEY:-}
+      NEWSAPI_KEY: ${NEWSAPI_KEY:-}
+      PINNACLE_API_KEY: ${PINNACLE_API_KEY:-}
+      OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ============================================================
+  # API Gateway (Fastify REST + WebSocket)
+  # ============================================================
+  api-gateway:
+    build:
+      context: ../packages/api-gateway
+      dockerfile: Dockerfile
+    container_name: betclaude-api
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-betclaude}
+      DB_USER: ${DB_USER:-betclaude}
+      DB_PASSWORD: ${DB_PASSWORD:-betclaude_dev}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      API_HOST: "0.0.0.0"
+      API_PORT: "3000"
+      CLAUDE_CLI_PATH: ${CLAUDE_CLI_PATH:-claude}
+      ANALYTICS_SERVICE_URL: http://analytics:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ============================================================
+  # Frontend (React SPA served by Nginx)
+  # ============================================================
+  frontend:
+    build:
+      context: ../packages/frontend
+      dockerfile: Dockerfile
+    container_name: betclaude-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - api-gateway
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

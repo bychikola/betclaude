@@ -1,0 +1,1 @@
+{"name":"@betclaude/mcp-chart-builder","version":"0.3.0","private":true,"type":"module","main":"./dist/index.js","scripts":{"build":"tsc","dev":"tsx src/index.ts"},"dependencies":{"@betclaude/shared":"*"},"devDependencies":{"tsx":"^4.7.0"}}
